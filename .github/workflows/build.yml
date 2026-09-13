@@ -1,0 +1,29 @@
+name: Build and playtest
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install graphics libraries (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev libsdl2-ttf-dev
+      - name: Install graphics libraries (macOS)
+        if: runner.os == 'macOS'
+        run: brew install sdl2 sdl2_ttf
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Campaign, neural learning, persistence, and interface tests
+        run: ctest --test-dir build --output-on-failure
+      - name: Sanitizer build
+        run: cmake -S . -B build-sanitize -DTIDEMIND_GUI=OFF -DTIDEMIND_SANITIZE=ON -DCMAKE_BUILD_TYPE=Debug
+      - name: Sanitizer tests
+        run: cmake --build build-sanitize --parallel && ctest --test-dir build-sanitize --output-on-failure

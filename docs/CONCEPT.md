@@ -30,3 +30,18 @@ connected infrastructure, residents, economy, resource production, progression,
 failure and recovery/restart, controls and onboarding, useful AI inspection,
 save/load, reproducible tests, and a verified build. The learned model must
 alter actual resident housing decisions and retain its weights in saves.
+
+## Implementation evidence from the repository survey
+
+`isolith/src/Level/Generation/AdaptiveDirector.cs` exposes readable adaptation
+metrics and reasons; `SectionGenerator.cs` seeds reproducible geometry. That
+informed Tidemind's visible inference metrics and seeded island generation.
+`experai/src/training/trainer.rs` includes seeded model initialisation,
+gradient clipping and checkpoint persistence. Tidemind applies those patterns
+in an independently implemented, much smaller C++ network.
+
+The native interface uses SDL2, already installed on this machine. API checks
+used the upstream documentation for
+[logical-size rendering](https://wiki.libsdl.org/SDL2/SDL_RenderSetLogicalSize)
+and [geometry rendering](https://wiki.libsdl.org/SDL2/SDL_RenderGeometry).
+No source was copied from the user's other repositories.
