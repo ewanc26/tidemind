@@ -67,13 +67,14 @@ class Game {
     int tool = 0, selected = Simulation::index(12, 13), hover = -1, cohort = 0, speed = 1;
     bool paused = true, menu = false, help = true, overlay = false, quit = false, drag = false,
          painting = false;
-    bool confirmNew = false, confirmLoad = false, confirmQuit = false, journal = false;
+    bool confirmNew = false, confirmLoad = false, confirmQuit = false, journal = false,
+         region = false;
     float camX = 690, camY = 170, zoom = 1;
     int lastPaint = -1;
     double elapsed = 0, clock = 0, toastTime = 0;
     std::string toast = "Welcome, town planner.";
     bool smokeBuilt = false, smokeSaved = false, smokeLoaded = false, smokeDemo = false,
-         smokeJournal = false, smokeRoads = false;
+         smokeJournal = false, smokeRoads = false, smokeCivilisations = false;
     void color(Color c) {
         SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
     }
@@ -428,7 +429,7 @@ void Game::world() {
         line(p.x + a, p.y, p.x, p.y + b, Paper);
         line(p.x, p.y + b, p.x - a, p.y, Paper);
     }
-    if (hover >= 0 && !menu && !help && !journal) {
+    if (hover >= 0 && !menu && !help && !journal && !region) {
         auto p = tilePoint(float(hover % MapSize), float(hover / MapSize));
         bool valid = tool >= 1 && tool <= 9
                          ? sim.canBuild(hover % MapSize, hover / MapSize, Building(tool)).ok
@@ -566,12 +567,61 @@ void Game::panel() {
     }
 }
 void Game::modal() {
-    if (!menu && !help && !journal && !sim.lost)
+    if (!menu && !help && !journal && !region && !sim.lost)
         return;
     rect(0, 0, W, H, {15, 37, 40, 170});
     rect(370, 165, 660, 625, Paper);
     rect(370, 165, 660, 7, Green);
-    if (journal) {
+    if (region) {
+        text("CIVILISATIONS OF THE ESTUARY", 397, 196, 12, Green);
+        text("Your town is part of a wider world.", 397, 229, 25);
+        button(819, 190, 98, 30, "Next day", 702);
+        button(929, 190, 77, 30, "Back", 701);
+        rect(392, 274, 615, 150, Ocean);
+        text("TIDEMIND / CIVIC UNION", 583, 397, 11, Paper);
+        for (int i = 0; i < 3; ++i) {
+            auto &c = sim.civilisations[i];
+            float x = 490 + i * 207.f;
+            line(x, 335, 700, 392,
+                 c.allied                      ? Gold
+                 : c.route != TradeRoute::None ? Color{134, 187, 155}
+                                               : Color{61, 99, 104});
+            diamond({x, 333}, 64, 29,
+                    i == 0   ? Color{128, 163, 99}
+                    : i == 1 ? Color{180, 157, 105}
+                             : Color{112, 161, 145});
+            for (int n = 0; n < std::min(7, c.homes); ++n)
+                building({x + (n % 3 - 1) * 20.f, 326 + (n / 3) * 9.f}, Building::Home, i, .65f);
+            building({x + 28, 340},
+                     i == 0   ? Building::Farm
+                     : i == 1 ? Building::Market
+                              : Building::Workshop,
+                     i, .7f);
+            text(c.capital(), int(x) - 45, 362, 12, Paper);
+            int cx = 392 + i * 209;
+            rect(cx, 437, 197, 284, Cream);
+            text(c.name(), cx + 10, 448, 15);
+            text(c.cultureName(), cx + 10, 474, 11, Muted);
+            text(std::string(c.era()) + " / " + std::to_string(c.population) + " people", cx + 10,
+                 497, 12, Green);
+            text("Food " + std::to_string(int(c.food)) + " / Coins " + std::to_string(int(c.money)),
+                 cx + 10, 522, 12);
+            wrapped(c.route == TradeRoute::None ? c.lastAction : c.routeStatus, cx + 10, 545, 176,
+                    11, Muted);
+            text("Relations: " + std::to_string(c.relations) + " / 100", cx + 10, 579, 12, Green);
+            button(cx + 9, 603, 179, 31, "Send envoy / 40 coins", 710 + i * 3);
+            std::string route = c.route == TradeRoute::None         ? "Open food imports"
+                                : c.route == TradeRoute::ImportFood ? "Switch to food exports"
+                                                                    : "End trade agreement";
+            button(cx + 9, 641, 179, 31, route, 711 + i * 3, c.route != TradeRoute::None);
+            button(cx + 9, 679, 179, 31, c.allied ? "End alliance" : "Alliance / 150 coins",
+                   712 + i * 3, c.allied);
+        }
+        wrapped(toastTime > 0 ? toast
+                              : "Trade needs a connected market and 55 relations; alliances need "
+                                "80. Envoys improve relations by 10 and return in seven days.",
+                397, 737, 607, 12, Green);
+    } else if (journal) {
         text("THE TOWN JOURNAL", 407, 201, 12, Green);
         text("From a settlement to a home.", 407, 234, 27);
         text("Income: " + std::to_string(int(sim.stats.income)) + " / day", 407, 287, 15, Green);
@@ -664,7 +714,7 @@ void Game::draw() {
     button(1258, 23, 120, 40, "Town menu", 203);
     text("Offline · learning locally", 1121, 77, 12, Green);
     double net = sim.stats.income - sim.stats.expenses;
-    text((net >= 0 ? "+" : "") + std::to_string(int(net)) + " / day", 279, 82, 11,
+    text((net >= 0 ? "+" : "") + std::to_string(int(net)) + " / day locally", 279, 82, 11,
          net >= 0 ? Green : Red);
     text(std::to_string(sim.stats.capacity) + " connected beds", 442, 82, 11, Muted);
     text("Goal: 65% or higher", 596, 82, 11, Muted);
@@ -679,11 +729,12 @@ void Game::draw() {
         text(sim.won ? "INDEPENDENCE EARNED" : "COUNCIL BRIEFING", 273, 834, 10, Green);
         wrapped(sim.advice(), 273, 854, 674, 14, Ink);
     }
-    if (paused && !menu && !help && !journal) {
+    if (paused && !menu && !help && !journal && !region) {
         rect(602, 123, 144, 27, {29, 66, 77, 220});
         text("TIME IS PAUSED", 618, 128, 11, Paper);
     }
     button(968, 833, 113, 44, "Journal / J", 600);
+    button(876, 188, 205, 30, "Civilisations / C", 700);
     modal();
 }
 void Game::apply(int i) {
@@ -703,7 +754,23 @@ void Game::action(int id) {
         tool = id - 100;
         return;
     }
+    if (id >= 710 && id <= 718) {
+        notify(sim.diplomacy((id - 710) / 3, (id - 710) % 3));
+        return;
+    }
     switch (id) {
+    case 700:
+        region = true;
+        menu = help = journal = false;
+        painting = drag = false;
+        toastTime = 0;
+        break;
+    case 701:
+        region = false;
+        break;
+    case 702:
+        sim.tick();
+        break;
     case 201:
         paused = !paused;
         elapsed = 0;
@@ -828,6 +895,10 @@ void Game::handle(const SDL_Event &e) {
     if (e.type == SDL_KEYDOWN && !e.key.repeat) {
         auto k = e.key.keysym.sym;
         if (k == SDLK_ESCAPE) {
+            if (region) {
+                region = false;
+                return;
+            }
             if (journal) {
                 journal = false;
                 return;
@@ -846,19 +917,28 @@ void Game::handle(const SDL_Event &e) {
         }
         if (k == SDLK_F9) {
             menu = true;
-            help = false;
+            help = region = journal = false;
             action(506);
             return;
         }
+        if (k == SDLK_c) {
+            if (region)
+                region = false;
+            else
+                action(700);
+            return;
+        }
         if (k == SDLK_j) {
+            region = menu = help = false;
             journal = !journal;
             return;
         }
         if (k == SDLK_h) {
+            region = journal = menu = false;
             help = !help;
             return;
         }
-        if (menu || help || journal || sim.lost)
+        if (menu || help || journal || region || sim.lost)
             return;
         if (k == SDLK_SPACE)
             action(201);
@@ -883,22 +963,23 @@ void Game::handle(const SDL_Event &e) {
             // Modal buttons are drawn last and take precedence over the map.
             for (auto it = buttons.rbegin(); it != buttons.rend(); ++it)
                 if (SDL_PointInRect(&p, &it->rect)) {
-                    if (((menu || help || journal || sim.lost) && it->action < 500) ||
-                        ((menu || help || journal || sim.lost) && it->action == 600))
+                    if (((menu || help || journal || region || sim.lost) && it->action < 500) ||
+                        ((menu || help || journal || region || sim.lost) &&
+                         (it->action == 600 || it->action == 700)))
                         return;
                     action(it->action);
                     return;
                 }
-            if (menu || help || journal || sim.lost)
+            if (menu || help || journal || region || sim.lost)
                 return;
             int i = pick(p.x, p.y);
             apply(i);
             painting = tool == 1;
             lastPaint = i;
-        } else if (!menu && !help && !journal && e.button.button == SDL_BUTTON_RIGHT) {
+        } else if (!menu && !help && !journal && !region && e.button.button == SDL_BUTTON_RIGHT) {
             tool = 0;
             selected = pick(e.button.x, e.button.y);
-        } else if (!menu && !help && !journal && e.button.button == SDL_BUTTON_MIDDLE)
+        } else if (!menu && !help && !journal && !region && e.button.button == SDL_BUTTON_MIDDLE)
             drag = true;
     }
     if (e.type == SDL_MOUSEBUTTONUP) {
@@ -911,7 +992,7 @@ void Game::handle(const SDL_Event &e) {
     }
     if (e.type == SDL_MOUSEMOTION) {
         hover = pick(e.motion.x, e.motion.y);
-        if (menu || help || journal)
+        if (menu || help || journal || region)
             return;
         if (drag) {
             camX += e.motion.xrel;
@@ -935,7 +1016,7 @@ void Game::handle(const SDL_Event &e) {
             lastPaint = hover;
         }
     }
-    if (e.type == SDL_MOUSEWHEEL && !menu && !help && !journal) {
+    if (e.type == SDL_MOUSEWHEEL && !menu && !help && !journal && !region) {
         zoom = std::clamp(zoom + e.wheel.y * .08f, .55f, 2.2f);
     }
 }
@@ -1040,6 +1121,15 @@ void Game::smokeStep(int frame) {
             smokeRoads &= sim.tiles[Simulation::index(x, 12)].building == Building::Road;
         key(SDLK_i);
     }
+    if (frame == 54)
+        key(SDLK_c);
+    if (frame == 56)
+        click(480, 617);
+    if (frame == 58)
+        click(870, 205);
+    if (frame == 60)
+        smokeCivilisations = region && sim.civilisations[0].relations == 60 &&
+                             sim.civilisations[0].envoyReady > sim.day;
 }
 int Game::run() {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
@@ -1115,7 +1205,7 @@ int Game::run() {
         SDL_Event e;
         while (SDL_PollEvent(&e))
             handle(e);
-        if (!paused && !menu && !help && !journal && !sim.lost) {
+        if (!paused && !menu && !help && !journal && !region && !sim.lost) {
             elapsed += dt * speed;
             if (elapsed >= 1.5) {
                 elapsed -= 1.5;
@@ -1130,7 +1220,7 @@ int Game::run() {
                 }
             }
         }
-        if (!menu && !help && !journal) {
+        if (!menu && !help && !journal && !region) {
             auto keys = SDL_GetKeyboardState(nullptr);
             float amount = float(dt) * 270;
             camX += (keys[SDL_SCANCODE_A] || keys[SDL_SCANCODE_LEFT] ? amount : 0) -
@@ -1144,18 +1234,18 @@ int Game::run() {
         draw();
         ++frame;
         bool lastFrame =
-            (options.frames && frame >= options.frames) || (options.smoke && frame >= 54);
+            (options.frames && frame >= options.frames) || (options.smoke && frame >= 64);
         if (lastFrame && !options.screenshot.empty())
             screenshot(options.screenshot);
         SDL_RenderPresent(renderer);
-        if ((options.frames && frame >= options.frames) || (options.smoke && frame >= 54)) {
+        if ((options.frames && frame >= options.frames) || (options.smoke && frame >= 64)) {
             if (options.smoke) {
                 bool ok = smokeBuilt && smokeSaved && smokeDemo && smokeLoaded && smokeJournal &&
                           paused && sim.day > 1 && sim.brain.samples > sim.initialTraining;
                 std::cout << "UI smoke: build=" << smokeBuilt << " save=" << smokeSaved
                           << " demolish=" << smokeDemo << " load=" << smokeLoaded
-                          << " roads=" << smokeRoads << " journal=" << smokeJournal
-                          << " timer day=" << sim.day
+                          << " civilisations=" << smokeCivilisations << " roads=" << smokeRoads
+                          << " journal=" << smokeJournal << " timer day=" << sim.day
                           << " local samples=" << sim.brain.samples - sim.initialTraining << '\n';
                 return ok ? 0 : 1;
             }

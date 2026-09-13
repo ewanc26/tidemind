@@ -18,3 +18,15 @@ input. It does not grant test-only money or set the victory flag. See
 
 GitHub Actions repeats release and sanitizer checks on macOS and Linux.
 The remote check results are available in the repository's Actions tab.
+
+## Civilisations update
+
+Tests cover autonomous population and district growth, cultural production
+bonuses, envoy cost and cooldown, trade prerequisites, import/export resource
+conservation, ending routes, alliance relief, full regional save/load and
+continued deterministic simulation. Version-one saves migrate, while damaged
+civilisation data is rejected without altering the current town.
+
+The native SDL input test opens Civilisations, sends an envoy, and advances the
+whole simulation from the regional screen. The view was rendered and visually
+inspected; `civilisations.png` records that actual screen.

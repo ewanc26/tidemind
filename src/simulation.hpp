@@ -1,5 +1,6 @@
 #ifndef TIDEMIND_SIMULATION_HPP
 #define TIDEMIND_SIMULATION_HPP
+#include "civilisation.hpp"
 #include "neural.hpp"
 #include <array>
 #include <filesystem>
@@ -61,6 +62,8 @@ class Simulation {
     Result demolish(int x, int y);
     void refresh();
     void tick();
+    Result diplomacy(int civilisation, int action);
+    void advanceCivilisations();
     NeuralNetwork::Features features(int index, int cohort) const;
     double appeal(int index, int cohort) const;
     std::string advice() const;
@@ -87,6 +90,7 @@ class Simulation {
     std::vector<std::string> events;
     std::vector<History> history;
     std::mt19937 rng;
+    std::array<Civilisation, 3> civilisations;
 
   private:
     double near(int index, Building b, int range) const;

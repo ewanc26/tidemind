@@ -17,6 +17,7 @@ std::string state(const Simulation &s) {
     std::ostringstream o;
     o << std::setprecision(17);
     s.brain.write(o);
+    writeCivilisations(o, s.civilisations);
     o << s.day << ' ' << s.money << ' ' << s.food << ' ' << s.rng;
     for (auto &t : s.tiles)
         o << int(t.terrain) << ' ' << int(t.building) << ' ' << t.people[0] << ' ' << t.people[1]
@@ -159,6 +160,93 @@ int main() {
               "changing only neural weights changes actual resident destination");
         check(preferenceA.relocations > 0 && preferenceB.relocations > 0,
               "learned model also relocates existing residents");
+        Simulation nations;
+        int startPopulation = nations.civilisations[0].population;
+        for (int i = 0; i < 120; ++i)
+            nations.tick();
+        check(nations.civilisations[0].population > startPopulation,
+              "neighbouring civilisation grows autonomously");
+        check(nations.civilisations[0].homes > 4,
+              "neighbouring civilisation builds districts from its budget");
+        auto cultures = createCivilisations(42);
+        check(cultures[0].harvest(false) > cultures[1].harvest(false),
+              "agrarian culture harvest bonus");
+        check(cultures[2].jobs() > cultures[1].jobs(), "craft culture industry bonus");
+        Simulation diplomacy;
+        check(!diplomacy.diplomacy(0, 1).ok, "trade requires diplomatic relations");
+        double priorMoney = diplomacy.money;
+        check(diplomacy.diplomacy(0, 0).ok && diplomacy.money == priorMoney - 40,
+              "envoy has a real treasury cost");
+        check(!diplomacy.diplomacy(0, 0).ok, "envoy cooldown blocks repeat gifting");
+        check(!diplomacy.diplomacy(0, 1).ok, "trade requires a connected market");
+        check(diplomacy.build(10, 13, Building::Market).ok, "build market for foreign trade");
+        check(diplomacy.diplomacy(0, 1).ok, "open import route");
+        diplomacy.civilisations[0].food = 1000;
+        Simulation noTrade = diplomacy;
+        noTrade.civilisations[0].route = TradeRoute::None;
+        diplomacy.tick();
+        noTrade.tick();
+        check(std::abs(diplomacy.food - noTrade.food - 8) < 1e-8 &&
+                  std::abs(diplomacy.money - noTrade.money + 6) < 1e-8,
+              "imports transfer 8 food for 6 coins");
+        check(std::abs(diplomacy.civilisations[0].food - noTrade.civilisations[0].food + 8) <
+                      1e-8 &&
+                  std::abs(diplomacy.civilisations[0].money - noTrade.civilisations[0].money - 6) <
+                      1e-8,
+              "partner pays for actual traded food");
+        check(diplomacy.civilisations[0].shipments == 1, "shipment recorded");
+        check(diplomacy.diplomacy(0, 1).ok, "switch import agreement to exports");
+        diplomacy.food = 1000;
+        Simulation noExport = diplomacy;
+        noExport.civilisations[0].route = TradeRoute::None;
+        diplomacy.tick();
+        noExport.tick();
+        check(std::abs(diplomacy.food - noExport.food + 8) < 1e-8 &&
+                  std::abs(diplomacy.money - noExport.money - 6) < 1e-8,
+              "exports exchange actual food for partner coins");
+        check(diplomacy.diplomacy(0, 1).ok && diplomacy.civilisations[0].route == TradeRoute::None,
+              "player can end a trade agreement");
+        check(!diplomacy.diplomacy(0, 2).ok, "alliance requires stronger relations");
+        diplomacy.civilisations[0].relations = 80;
+        check(diplomacy.diplomacy(0, 2).ok && diplomacy.civilisations[0].allied,
+              "alliance ratified");
+        diplomacy.civilisations[0].route = TradeRoute::None;
+        diplomacy.food = 0;
+        Simulation unaided = diplomacy;
+        unaided.civilisations[0].allied = false;
+        diplomacy.tick();
+        unaided.tick();
+        check(std::abs(diplomacy.food - unaided.food - 4) < 1e-8,
+              "allies transfer relief food during shortages");
+        check(diplomacy.save(tmp).ok && b.load(tmp).ok && state(diplomacy) == state(b),
+              "civilisation resources and diplomacy round trip exactly");
+        for (int i = 0; i < 30; ++i) {
+            diplomacy.tick();
+            b.tick();
+        }
+        check(state(diplomacy) == state(b), "civilisation simulation resumes deterministically");
+        std::ifstream saved(tmp);
+        std::string bytes((std::istreambuf_iterator<char>(saved)), {});
+        saved.close();
+        auto marker = bytes.find("CIVILISATIONS 1");
+        check(marker != std::string::npos, "versioned civilisation section written");
+        std::string old = bytes.substr(0, marker);
+        old.replace(0, 10, "TIDEMIND 1");
+        {
+            std::ofstream out(tmp);
+            out << old;
+        }
+        check(b.load(tmp).ok, "version one towns migrate without losing their map");
+        check(b.civilisations[0].population == createCivilisations(b.seed)[0].population,
+              "legacy migration introduces seeded neighbours");
+        {
+            std::ofstream out(tmp);
+            out << bytes.substr(0, marker) << "CIVILISATIONS 999\n";
+        }
+        previous = state(b);
+        check(!b.load(tmp).ok && state(b) == previous,
+              "corrupt civilisation block preserves current town");
+        std::filesystem::remove(tmp);
         Simulation failed;
         failed.money = -10000;
         for (int i = 0; i < 10; ++i)

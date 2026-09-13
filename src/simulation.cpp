@@ -28,6 +28,7 @@ Simulation::Simulation(uint32_t s) : brain(s), rng(s) {
 }
 void Simulation::reset(uint32_t s) {
     seed = s;
+    civilisations = createCivilisations(s);
     rng.seed(s);
     brain = NeuralNetwork(s);
     day = 1;
@@ -280,6 +281,7 @@ void Simulation::tick() {
     refresh();
     food = std::clamp(food + stats.foodProduction - stats.foodUse, 0.0, 3000.0);
     money += stats.income - stats.expenses;
+    advanceCivilisations();
     for (int i = 0; i < TileCount; ++i) {
         auto &t = tiles[i];
         if (t.building != Building::Home)
@@ -393,6 +395,104 @@ std::string Simulation::advice() const {
     return "The town is balanced. Expand housing and services together; prepare extra food for "
            "winter.";
 }
+Result Simulation::diplomacy(int civilisation, int action) {
+    if (lost)
+        return {false, "Start or restore a town before conducting diplomacy."};
+    if (civilisation < 0 || civilisation >= 3)
+        return {false, "Unknown civilisation."};
+    auto &c = civilisations[civilisation];
+    if (action == 0) {
+        if (day < c.envoyReady)
+            return {false, "Your envoy returns on day " + std::to_string(c.envoyReady) + "."};
+        if (money < 40)
+            return {false, "An envoy costs 40 coins."};
+        money -= 40;
+        c.relations = std::min(100, c.relations + 10);
+        c.envoyReady = day + 7;
+        announce(std::string("Your envoy strengthened ties with ") + c.name() + ".");
+        return {true, "Relations improved by 10. Your envoy returns in seven days."};
+    }
+    if (action == 1) {
+        if (c.route == TradeRoute::ExportFood) {
+            c.route = TradeRoute::None;
+            c.routeStatus = "Agreement ended";
+            return {true, "Trade agreement ended."};
+        }
+        if (c.relations < 55)
+            return {false, "Trade requires 55 relations. Send an envoy first."};
+        if (!count(Building::Market, true))
+            return {false, "Connect a market to open a trade route."};
+        c.route = c.route == TradeRoute::None ? TradeRoute::ImportFood : TradeRoute::ExportFood;
+        c.routeStatus = "Waiting for the next shipment";
+        return {true, c.route == TradeRoute::ImportFood
+                          ? "Import agreement: 8 food for 6 coins each day, while reserves allow."
+                          : "Export agreement: 8 food for 6 coins each day, while reserves allow."};
+    }
+    if (action == 2) {
+        if (c.allied) {
+            c.allied = false;
+            c.relations = std::max(0, c.relations - 15);
+            return {true, "Alliance ended; relations fell by 15."};
+        }
+        if (c.relations < 80)
+            return {false, "An alliance requires 80 relations."};
+        if (money < 150)
+            return {false, "Ratifying an alliance costs 150 coins."};
+        money -= 150;
+        c.allied = true;
+        announce(std::string("Tidemind and ") + c.name() + " formed an alliance.");
+        return {true, "Alliance formed. Your ally can send food relief during shortages."};
+    }
+    return {false, "Unknown diplomatic action."};
+}
+void Simulation::advanceCivilisations() {
+    for (auto &c : civilisations) {
+        auto oldEra = std::string(c.era());
+        c.advance(day);
+        if (oldEra != c.era())
+            announce(std::string(c.name()) + " has grown into a " + c.era() + ".");
+        if (c.route != TradeRoute::None) {
+            if (!count(Building::Market, true))
+                c.routeStatus = "Suspended: connect a market";
+            else if (c.relations < 55)
+                c.routeStatus = "Suspended: relations below 55";
+            else if (c.route == TradeRoute::ImportFood) {
+                if (c.food < c.population * 3 + 8)
+                    c.routeStatus = "Suspended: partner food reserves low";
+                else if (money < 6)
+                    c.routeStatus = "Suspended: treasury below 6 coins";
+                else if (food > 2992)
+                    c.routeStatus = "Suspended: your food store is full";
+                else {
+                    c.food -= 8;
+                    food += 8;
+                    money -= 6;
+                    c.money += 6;
+                    ++c.shipments;
+                    c.routeStatus = "Arrived: +8 food / -6 coins";
+                }
+            } else {
+                if (food < stats.foodUse * 3 + 8)
+                    c.routeStatus = "Suspended: protect your food reserves";
+                else if (c.money < 6 || c.food > 2992)
+                    c.routeStatus = "Suspended: partner cannot buy";
+                else {
+                    food -= 8;
+                    c.food += 8;
+                    money += 6;
+                    c.money -= 6;
+                    ++c.shipments;
+                    c.routeStatus = "Departed: -8 food / +6 coins";
+                }
+            }
+        }
+        if (c.allied && food <= 2996 && food < stats.foodUse * 3 && c.food > c.population * 4 + 4) {
+            c.food -= 4;
+            food += 4;
+            c.routeStatus = "Alliance relief: +4 food";
+        }
+    }
+}
 Result Simulation::save(const std::filesystem::path &path) const {
     try {
         if (path.has_parent_path())
@@ -403,7 +503,7 @@ Result Simulation::save(const std::filesystem::path &path) const {
         if (!out)
             return {false, "Cannot open save file."};
         out << std::setprecision(std::numeric_limits<double>::max_digits10);
-        out << "TIDEMIND 1\n"
+        out << "TIDEMIND 2\n"
             << seed << ' ' << day << ' ' << tax << ' ' << stableDays << ' ' << debtDays << ' '
             << earnedMilestones << ' ' << won << ' ' << lost << ' ' << money << ' ' << food << ' '
             << initialTraining << ' ' << relocations << '\n';
@@ -418,6 +518,7 @@ Result Simulation::save(const std::filesystem::path &path) const {
         out << history.size() << '\n';
         for (auto &h : history)
             out << h.day << ' ' << h.population << ' ' << h.money << ' ' << h.happiness << '\n';
+        writeCivilisations(out, civilisations);
         out.flush();
         if (!out)
             return {false, "Could not finish saving."};
@@ -439,7 +540,7 @@ Result Simulation::load(const std::filesystem::path &path) {
         std::ifstream in(path);
         std::string magic;
         int version;
-        if (!(in >> magic >> version) || magic != "TIDEMIND" || version != 1)
+        if (!(in >> magic >> version) || magic != "TIDEMIND" || (version != 1 && version != 2))
             return bad();
         Simulation s(1);
         if (!(in >> s.seed >> s.day >> s.tax >> s.stableDays >> s.debtDays >> s.earnedMilestones >>
@@ -492,6 +593,11 @@ Result Simulation::load(const std::filesystem::path &path) {
                 return bad();
             s.history.push_back(h);
         }
+        if (version == 2) {
+            if (!readCivilisations(in, s.civilisations))
+                return bad();
+        } else
+            s.civilisations = createCivilisations(s.seed);
         in >> std::ws;
         if (!in.eof())
             return bad();

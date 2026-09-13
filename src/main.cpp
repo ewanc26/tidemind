@@ -13,7 +13,8 @@ int main(int argc, char **argv) {
                    "                [--frames NUMBER] [--screenshot PATH.bmp]\n\n"
                    "Mouse: choose a tool, click to build; drag streets; right-click inspect.\n"
                    "WASD/arrows: pan. Wheel: zoom. Space: pause. 1-9: building tools.\n"
-                   "B: demolish. I: inspect. Tab: neural overlay. H: help. Esc: menu.\n"
+                   "B: demolish. I: inspect. Tab: neural overlay. H: help. C: civilisations. Esc: "
+                   "menu.\n"
                    "F5: save. F9: load. +/-: speed. Home: centre camera.\n";
             return 0;
         }

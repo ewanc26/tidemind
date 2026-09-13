@@ -171,3 +171,41 @@ launch options. `tests/core_tests.cpp` includes the reproducible campaign plan.
 All graphics are original procedural geometry, apart from the open-licensed
 bundled typeface. This is a compact single-player game; it does not currently
 include multiplayer, social synchronisation, audio or mod support.
+
+## Civilisations
+
+Press **C**, or click **Civilisations**, to explore the wider estuary. Your
+Tidemind civic union shares the region with three independently growing societies:
+
+- **Glenmere Commons**, agrarian cooperatives based at Greenbank, harvest more
+  food per farm.
+- **Brasshaven League**, merchant city-states, earn more domestic income per person.
+- **Pearlwater Kin**, island craft guilds, provide more jobs per workshop.
+
+Each has its own population, housing districts, farms, workshops, food stores
+and treasury. Their planners spend their own money on districts, protect winter
+food reserves, and expand from settlements into city-states and commonwealths.
+They advance every game day alongside your town. The regional map reflects their
+housing growth and shows diplomatic links. Use **Next day** to advance the whole
+world while inspecting it; otherwise the regional view pauses time.
+
+Send an **envoy** for 40 coins to improve relations by 10. An envoy returns in
+seven days. At **55 relations**, a connected market allows daily food trade:
+8 food for 6 coins. The route button cycles through imports, exports and ending
+the agreement. Transactions transfer stock and money between the two actual
+economies. Shortages, a full store or a disconnected market suspend shipments,
+and the card explains why. The treasury's local daily figure excludes foreign
+trade; each civilisation card reports its shipment separately.
+
+At **80 relations**, ratify an **alliance** for 150 coins. Allies with enough
+reserves send four food per day when your stocks fall below three days of demand.
+Ending an alliance reduces relations by 15. Imports and aid support your reserves;
+the independence objective still requires sufficient domestic food production.
+
+Civilisations and all diplomacy, cooldowns and trade counters are saved. Older
+version-one towns migrate automatically, adding seeded neighbours while retaining
+the original town and neural model. Neighbouring civic planners use explicit
+resource rules; the existing neural network still governs your residents' housing
+choices. There is no warfare or territorial conquest in this update.
+
+![Civilisations and diplomacy](docs/civilisations.png)
