@@ -1,0 +1,6 @@
+/build*/
+/out/
+*.save
+*.save.tmp
+.DS_Store
+*.bmp
