@@ -73,7 +73,7 @@ class Game {
     double elapsed = 0, clock = 0, toastTime = 0;
     std::string toast = "Welcome, town planner.";
     bool smokeBuilt = false, smokeSaved = false, smokeLoaded = false, smokeDemo = false,
-         smokeJournal = false;
+         smokeJournal = false, smokeRoads = false;
     void color(Color c) {
         SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
     }
@@ -918,7 +918,20 @@ void Game::handle(const SDL_Event &e) {
             camY += e.motion.yrel;
         }
         if (painting && hover >= 0 && hover != lastPaint) {
-            apply(hover);
+            // Motion events can skip tiles. Fill an orthogonal path so a fast
+            // drag still creates a connected street, including diagonal drags.
+            if (lastPaint >= 0) {
+                int x = lastPaint % MapSize, y = lastPaint / MapSize;
+                int tx = hover % MapSize, ty = hover / MapSize;
+                while (x != tx || y != ty) {
+                    if (std::abs(tx - x) >= std::abs(ty - y) && x != tx)
+                        x += tx > x ? 1 : -1;
+                    else
+                        y += ty > y ? 1 : -1;
+                    apply(Simulation::index(x, y));
+                }
+            } else
+                apply(hover);
             lastPaint = hover;
         }
     }
@@ -1001,8 +1014,32 @@ void Game::smokeStep(int frame) {
     }
     if (frame == 48)
         key(SDLK_SPACE);
-    if (frame == 50)
+    if (frame == 49)
+        key(SDLK_1);
+    if (frame == 50) {
+        auto start = tilePoint(8, 12), end = tilePoint(10, 12);
+        SDL_Event e{};
+        e.type = SDL_MOUSEBUTTONDOWN;
+        e.button.button = SDL_BUTTON_LEFT;
+        e.button.x = int(start.x);
+        e.button.y = int(start.y);
+        SDL_PushEvent(&e);
+        e = {};
+        e.type = SDL_MOUSEMOTION;
+        e.motion.x = int(end.x);
+        e.motion.y = int(end.y);
+        SDL_PushEvent(&e);
+        e = {};
+        e.type = SDL_MOUSEBUTTONUP;
+        e.button.button = SDL_BUTTON_LEFT;
+        SDL_PushEvent(&e);
+    }
+    if (frame == 52) {
+        smokeRoads = true;
+        for (int x = 8; x <= 10; ++x)
+            smokeRoads &= sim.tiles[Simulation::index(x, 12)].building == Building::Road;
         key(SDLK_i);
+    }
 }
 int Game::run() {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
@@ -1117,7 +1154,8 @@ int Game::run() {
                           paused && sim.day > 1 && sim.brain.samples > sim.initialTraining;
                 std::cout << "UI smoke: build=" << smokeBuilt << " save=" << smokeSaved
                           << " demolish=" << smokeDemo << " load=" << smokeLoaded
-                          << " journal=" << smokeJournal << " timer day=" << sim.day
+                          << " roads=" << smokeRoads << " journal=" << smokeJournal
+                          << " timer day=" << sim.day
                           << " local samples=" << sim.brain.samples - sim.initialTraining << '\n';
                 return ok ? 0 : 1;
             }
