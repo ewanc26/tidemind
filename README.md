@@ -209,3 +209,13 @@ resource rules; the existing neural network still governs your residents' housin
 choices. There is no warfare or territorial conquest in this update.
 
 ![Civilisations and diplomacy](docs/civilisations.png)
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=ewanc26%2Ftidemind&type=date&legend=bottom-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=ewanc26/tidemind&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=ewanc26/tidemind&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=ewanc26/tidemind&type=date&legend=bottom-right" />
+ </picture>
+</a>
