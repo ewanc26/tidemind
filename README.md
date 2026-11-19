@@ -46,8 +46,7 @@ plan before starting time. An existing save is restored automatically, paused.
   residents share these capacities. Low power reduces effective jobs.
 - **Workshops** provide 24 jobs but make nearby homes less pleasant.
   **Markets** provide 12 jobs and trade income, reduced by utility shortages.
-- **Gardens** imp
-rove homes within four tiles, and **clinics** within six.
+- **Gardens** improve homes within four tiles, and **clinics** within six.
   Clinics also provide eight jobs. Distances use the street-grid coordinates.
 - **Taxes** fund the town but reduce its appeal. The treasury also receives a
   12 coin daily civic grant. Every built structure has upkeep, even if it is
@@ -90,8 +89,7 @@ the journal shows recent events, income, upkeep and population history.
 Mouse input scales with the resizable window. Use the tile's ground footprint
 when placing or selecting; a tall building can extend over tiles behind it.
 
-## Sav
-ing
+## Saving
 
 The game maintains one local save slot: `town.save` in SDL's application data
 folder. On macOS this is normally
@@ -131,7 +129,6 @@ count. The overlay colours homes by predicted appeal for the selected cohort.
 This is a small supervised simulation model, not a language model or a claim
 of human intelligence. **The council briefing is rule-based**; the neural
 network controls resident housing choices. See [AI details](docs/AI.md).
-
 
 ## Verification and development
 
@@ -178,8 +175,7 @@ include multiplayer, social synchronisation, audio or mod support.
 ## Civilisations
 
 Press **C**, or click **Civilisations**, to explore the wider estuary. Your
-Tidemind civic union shares the region with three independentl
-y growing societies:
+Tidemind civic union shares the region with three independently growing societies:
 
 - **Glenmere Commons**, agrarian cooperatives based at Greenbank, harvest more
   food per farm.
@@ -212,8 +208,7 @@ the original town and neural model. Neighbouring civic planners use explicit
 resource rules; the existing neural network still governs your residents' housing
 choices. There is no warfare or territorial conquest in this update.
 
-![Civil
-isations and diplomacy](docs/civilisations.png)
+![Civilisations and diplomacy](docs/civilisations.png)
 
 ## Star History
 
@@ -224,7 +219,6 @@ isations and diplomacy](docs/civilisations.png)
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=ewanc26/tidemind&type=date&legend=bottom-right" />
  </picture>
 </a>
-
 ## Licence
 
 See [LICENSE](LICENSE) for the licence terms.
